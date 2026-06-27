@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>📓 Scratchpad</title>
+<style>
+  :root{
+    --bg:#100e0a;--surface:#171410;--card:#1c1813;--border:#2b251c;
+    --ink:#f0e9d8;--muted:#8a8270;--amber:#e8a33d;--amber-dim:#5c4527;
+    --green:#7fbf6a;--red:#e2685c;--blue:#6fa8dc;
+    --r:12px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;}
+  ::-webkit-scrollbar{width:7px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+  .app{display:grid;grid-template-columns:280px 1fr;height:100vh;}
+  @media(max-width:760px){.app{grid-template-columns:1fr;}}
+
+  /* ── Sidebar ── */
+  .sidebar{
+    background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .sb-head{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+  .sb-head h1{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .sb-head .count{font-size:0.7rem;color:var(--muted);margin-top:3px;}
+
+  #search{
+    width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;
+    padding:8px 12px;color:var(--ink);font-size:0.78rem;outline:none;margin-top:12px;
+    transition:border-color .2s;
+  }
+  #search:focus{border-color:var(--amber);}
+
+  .new-btn{
+    width:100%;margin-top:10px;background:var(--amber);border:none;border-radius:8px;
+    padding:9px;color:#1a1306;font-size:0.78rem;font-weight:700;cursor:pointer;
+    transition:filter .15s;
+  }
+  .new-btn:hover{filter:brightness(1.1);}
+
+  .tag-filter{
+    display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);
+  }
+  .tag-chip{
+    font-size:0.65rem;padding:3px 9px;border-radius:20px;cursor:pointer;
+    background:var(--card);border:1px solid var(--border);color:var(--muted);
+    transition:all .15s;
+  }
+  .tag-chip.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+
+  .note-list{flex:1;overflow-y:auto;}
+  .note-item{
+    padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;
+    transition:background .15s;position:relative;
+  }
+  .note-item:hover{background:var(--card);}
+  .note-item.active{background:var(--card);border-left:3px solid var(--amber);}
+  .ni-title{font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ni-preview{font-size:0.72rem;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ni-meta{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap;}
+  .ni-tag{font-size:0.6rem;background:var(--amber-dim);color:var(--amber);padding:1px 7px;border-radius:20px;}
+  .ni-time{font-size:0.62rem;color:var(--muted);margin-left:auto;}
+
+  #empty-list{padding:40px 16px;text-align:center;color:var(--muted);font-size:0.78rem;}
+
+  /* ── Main editor ── */
+  .main{display:flex;flex-direction:column;overflow:hidden;}
+  .main-head{
+    padding:14px 24px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  #note-title-input{
+    flex:1;min-width:160px;background:transparent;border:none;outline:none;
+    color:var(--ink);font-size:1.1rem;font-weight:700;font-family:inherit;
+  }
+  #note-title-input::placeholder{color:var(--muted);}
+
+  .view-toggle{display:flex;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .view-toggle button{
+    background:none;border:none;color:var(--muted);padding:6px 14px;font-size:0.74rem;
+    cursor:pointer;transition:all .15s;
+  }
+  .view-toggle button.active{background:var(--amber-dim);color:var(--amber);}
+
+  .icon-btn{
+    background:var(--card);border:1px solid var(--border);border-radius:8px;
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);cursor:pointer;font-size:0.85rem;transition:all .2s;flex-shrink:0;
+  }
+  .icon-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .icon-btn.danger:hover{border-color:var(--red);color:var(--red);}
+
+  #tags-input{
+    background:var(--card);border:1px solid var(--border);border-radius:8px;
+    padding:6px 12px;color:var(--ink);font-size:0.74rem;outline:none;width:160px;
+  }
+  #tags-input:focus{border-color:var(--amber);}
+
+  .editor-area{flex:1;display:grid;overflow:hidden;}
+  .editor-area.split{grid-template-columns:1fr 1fr;}
+  .editor-area.write-only{grid-template-columns:1fr;}
+  .editor-area.preview-only{grid-template-columns:1fr;}
+
+  #md-input{
+    width:100%;height:100%;background:var(--bg);border:none;outline:none;resize:none;
+    padding:24px 28px;color:var(--ink);font-family:'Courier New',monospace;
+    font-size:0.92rem;line-height:1.75;
+  }
+  .editor-area.preview-only #md-input{display:none;}
+
+  #preview{
+    padding:24px 32px;overflow-y:auto;border-left:1px solid var(--border);
+    font-family:Georgia,'Times New Roman',serif;font-size:0.98rem;line-height:1.8;
+  }
+  .editor-area.write-only #preview{display:none;}
+  .editor-area.split #preview{border-left:1px solid var(--border);}
+
+  #preview h1,#preview h2,#preview h3{font-family:'Segoe UI',sans-serif;color:var(--amber);margin:18px 0 8px;}
+  #preview h1{font-size:1.5rem;} #preview h2{font-size:1.25rem;} #preview h3{font-size:1.05rem;}
+  #preview p{margin-bottom:12px;}
+  #preview code{background:var(--card);padding:2px 6px;border-radius:4px;font-family:'Courier New',monospace;font-size:0.88em;color:var(--green);}
+  #preview pre{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin-bottom:12px;}
+  #preview pre code{background:none;padding:0;color:var(--ink);}
+  #preview blockquote{border-left:3px solid var(--amber);padding-left:14px;color:var(--muted);margin-bottom:12px;font-style:italic;}
+  #preview ul,#preview ol{margin:0 0 12px 22px;}
+  #preview a{color:var(--blue);text-decoration:underline;}
+  #preview strong{color:var(--amber);}
+
+  .footer-bar{
+    padding:9px 24px;border-top:1px solid var(--border);
+    display:flex;gap:16px;font-size:0.7rem;color:var(--muted);align-items:center;
+  }
+  .footer-bar .saved{color:var(--green);}
+
+  #welcome{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--muted);text-align:center;padding:40px;
+  }
+  #welcome .big{font-size:3rem;margin-bottom:16px;}
+  #welcome h2{font-size:1rem;margin-bottom:8px;color:var(--ink);}
+  #welcome p{font-size:0.8rem;max-width:280px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-head">
+      <h1>📓 Scratchpad</h1>
+      <div class="count" id="note-count">0 notes</div>
+      <input type="text" id="search" placeholder="Search notes..." oninput="renderList()"/>
+      <button class="new-btn" onclick="newNote()">+ New Note</button>
+    </div>
+    <div class="tag-filter" id="tag-filter"></div>
+    <div class="note-list" id="note-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="main-area"></div>
+</div>
+
+<script>
+  let notes = JSON.parse(localStorage.getItem('scratchpad_v1') || '[]');
+  let activeId = null;
+  let activeFilter = null;
+  let viewMode = 'split'; // split | write-only | preview-only
+  let saveTimeout = null;
+
+  // ── Tiny zero-dependency Markdown -> HTML parser ──
+  function mdToHtml(src) {
+    if (!src) return '';
+    let text = escHtml(src);
+
+    // Code blocks first (so inner content isn't touched by other rules)
+    text = text.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false, listType = null;
+
+    for (let raw of lines) {
+      const line = raw;
+
+      if (/^#{1,3}\s/.test(line)) {
+        if (inList) { html += `</${listType}>`; inList = false; }
+        const level = line.match(/^#{1,3}/)[0].length;
+        html += `<h${level}>${inline(line.replace(/^#{1,3}\s/, ''))}</h${level}>`;
+        continue;
+      }
+      if (/^>\s/.test(line)) {
+        if (inList) { html += `</${listType}>`; inList = false; }
+        html += `<blockquote>${inline(line.replace(/^>\s/, ''))}</blockquote>`;
+        continue;
+      }
+      if (/^[-*]\s/.test(line)) {
+        if (!inList || listType !== 'ul') { if (inList) html += `</${listType}>`; html += '<ul>'; inList = true; listType = 'ul'; }
+        html += `<li>${inline(line.replace(/^[-*]\s/, ''))}</li>`;
+        continue;
+      }
+      if (/^\d+\.\s/.test(line)) {
+        if (!inList || listType !== 'ol') { if (inList) html += `</${listType}>`; html += '<ol>'; inList = true; listType = 'ol'; }
+        html += `<li>${inline(line.replace(/^\d+\.\s/, ''))}</li>`;
+        continue;
+      }
+      if (line.trim() === '') {
+        if (inList) { html += `</${listType}>`; inList = false; }
+        continue;
+      }
+      if (/^<pre>/.test(line)) { html += line; continue; }
+
+      if (inList) { html += `</${listType}>`; inList = false; }
+      html += `<p>${inline(line)}</p>`;
+    }
+    if (inList) html += `</${listType}>`;
+    return html;
+  }
+
+  function inline(s) {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function save() {
+    localStorage.setItem('scratchpad_v1', JSON.stringify(notes));
+  }
+
+  function allTags() {
+    const set = new Set();
+    notes.forEach(n => (n.tags||[]).forEach(t => set.add(t)));
+    return [...set].sort();
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    return `${Math.floor(hr/24)}d ago`;
+  }
+
+  function newNote() {
+    const note = {
+      id: Date.now().toString(36),
+      title: '',
+      content: '',
+      tags: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    notes.unshift(note);
+    activeId = note.id;
+    save();
+    renderAll();
+    document.getElementById('note-title-input')?.focus();
+  }
+
+  function selectNote(id) {
+    activeId = id;
+    renderAll();
+  }
+
+  function deleteNote(id) {
+    if (!confirm('Delete this note permanently?')) return;
+    notes = notes.filter(n => n.id !== id);
+    if (activeId === id) activeId = notes[0]?.id || null;
+    save();
+    renderAll();
+  }
+
+  function updateActive(field, value) {
+    const note = notes.find(n => n.id === activeId);
+    if (!note) return;
+    note[field] = value;
+    note.updatedAt = Date.now();
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      save();
+      renderList();
+      document.getElementById('save-status').textContent = '✓ Saved';
+      document.getElementById('save-status').classList.add('saved');
+    }, 400);
+    if (document.getElementById('preview')) {
+      document.getElementById('preview').innerHTML = mdToHtml(note.content);
+    }
+  }
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    renderMain();
+  }
+
+  function setTags(value) {
+    const note = notes.find(n => n.id === activeId);
+    if (!note) return;
+    note.tags = value.split(',').map(t => t.trim()).filter(Boolean);
+    note.updatedAt = Date.now();
+    save();
+    renderList();
+    renderTagFilter();
+  }
+
+  function filterByTag(tag) {
+    activeFilter = activeFilter === tag ? null : tag;
+    renderList();
+    renderTagFilter();
+  }
+
+  function exportNote() {
+    const note = notes.find(n => n.id === activeId);
+    if (!note) return;
+    const blob = new Blob([`# ${note.title || 'Untitled'}\n\n${note.content}`], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(note.title || 'untitled').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}.md`;
+    a.click();
+  }
+
+  function wordCount(text) {
+    return (text.trim().match(/\S+/g) || []).length;
+  }
+
+  // ── Render: sidebar tag filters ──
+  function renderTagFilter() {
+    const tags = allTags();
+    const el = document.getElementById('tag-filter');
+    if (!tags.length) { el.innerHTML = ''; return; }
+    el.innerHTML = tags.map(t =>
+      `<span class="tag-chip ${activeFilter===t?'active':''}" onclick="filterByTag('${t}')">${escHtml(t)}</span>`
+    ).join('');
+  }
+
+  // ── Render: note list ──
+  function renderList() {
+    const query = document.getElementById('search').value.trim().toLowerCase();
+    let filtered = notes.filter(n =>
+      (!query || n.title.toLowerCase().includes(query) || n.content.toLowerCase().includes(query)) &&
+      (!activeFilter || (n.tags||[]).includes(activeFilter))
+    );
+
+    document.getElementById('note-count').textContent = `${notes.length} note${notes.length!==1?'s':''}`;
+
+    const listEl = document.getElementById('note-list');
+    if (!filtered.length) {
+      listEl.innerHTML = `<div id="empty-list">${notes.length ? 'No matches' : 'No notes yet — create one!'}</div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered
+      .sort((a,b) => b.updatedAt - a.updatedAt)
+      .map(n => `
+        <div class="note-item ${n.id===activeId?'active':''}" onclick="selectNote('${n.id}')">
+          <div class="ni-title">${escHtml(n.title) || 'Untitled'}</div>
+          <div class="ni-preview">${escHtml(n.content.slice(0,80)) || 'No content yet'}</div>
+          <div class="ni-meta">
+            ${(n.tags||[]).slice(0,2).map(t => `<span class="ni-tag">${escHtml(t)}</span>`).join('')}
+            <span class="ni-time">${timeAgo(n.updatedAt)}</span>
+          </div>
+        </div>
+      `).join('');
+  }
+
+  // ── Render: main editor area ──
+  function renderMain() {
+    const main = document.getElementById('main-area');
+    const note = notes.find(n => n.id === activeId);
+
+    if (!note) {
+      main.innerHTML = `
+        <div id="welcome">
+          <div class="big">📓</div>
+          <h2>No note selected</h2>
+          <p>Pick a note from the sidebar, or click <strong>+ New Note</strong> to start writing in Markdown.</p>
+        </div>`;
+      return;
+    }
+
+    main.innerHTML = `
+      <div class="main-head">
+        <input type="text" id="note-title-input" placeholder="Untitled note" value="${escHtml(note.title)}"
+               oninput="updateActive('title', this.value)"/>
+        <input type="text" id="tags-input" placeholder="tags, comma, separated" value="${escHtml((note.tags||[]).join(', '))}"
+               onchange="setTags(this.value)"/>
+        <div class="view-toggle">
+          <button class="${viewMode==='write-only'?'active':''}" onclick="setViewMode('write-only')">Write</button>
+          <button class="${viewMode==='split'?'active':''}" onclick="setViewMode('split')">Split</button>
+          <button class="${viewMode==='preview-only'?'active':''}" onclick="setViewMode('preview-only')">Preview</button>
+        </div>
+        <div class="icon-btn" onclick="exportNote()" title="Export as .md">⬇</div>
+        <div class="icon-btn danger" onclick="deleteNote('${note.id}')" title="Delete note">🗑</div>
+      </div>
+      <div class="editor-area ${viewMode}">
+        <textarea id="md-input" placeholder="# Start writing in Markdown...
+
+**bold**, *italic*, \`code\`, > quotes, - lists, [links](url)"
+                  oninput="updateActive('content', this.value)">${escHtml(note.content)}</textarea>
+        <div id="preview">${mdToHtml(note.content)}</div>
+      </div>
+      <div class="footer-bar">
+        <span id="save-status">${note.content ? '✓ Saved' : ''}</span>
+        <span>${wordCount(note.content)} words</span>
+        <span>${Math.max(1, Math.ceil(wordCount(note.content)/200))} min read</span>
+      </div>
+    `;
+  }
+
+  function renderAll() {
+    renderTagFilter();
+    renderList();
+    renderMain();
+  }
+
+  renderAll();
+</script>
+</body>
+</html>
